@@ -1,0 +1,19 @@
+# Local environment variables
+.env
+
+# SQLite Databases
+*.db
+*.db.bak
+
+# Python virtual environment & cache
+.venv/
+__pycache__/
+*.pyc
+
+# Node dependencies & builds
+node_modules/
+dist/
+
+# IDE settings
+.vscode/
+.idea/

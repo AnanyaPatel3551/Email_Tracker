@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Email Message</title>
+</head>
+<body>
+    <h2>Mock Email Content</h2>
+    <p>Hello! This is a test email message body. Below this paragraph, there is a tracking pixel.</p>
+    
+    <!-- 
+      The tracking pixel: 1x1 image, completely invisible.
+      Points to our local FastAPI server with email_id = 'test_email_123'
+    -->
+    <img src="http://127.0.0.1:8000/pixel/test_email_123" width="1" height="1" alt="" style="display:none;" />
+    
+    <p>Opening this page in your browser simulated opening an email in a client.</p>
+</body>
+</html>
