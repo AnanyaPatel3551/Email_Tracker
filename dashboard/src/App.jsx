@@ -7,9 +7,10 @@ function App() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [seeding, setSeeding] = useState(false);
 
-  // Fetch emails from the FastAPI backend
+  // Fetch emails from the FastAPI backend when the component mounts
   const fetchEmails = () => {
-    return fetch('http://127.0.0.1:8000/emails')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    return fetch(`${apiUrl}/emails`)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch emails: Server responded with status ${res.status}`);
@@ -34,7 +35,8 @@ function App() {
   // Post to backend to seed mock data, then refresh UI
   const handleSeedData = () => {
     setSeeding(true);
-    fetch('http://127.0.0.1:8000/emails/seed', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    fetch(`${apiUrl}/emails/seed`, {
       method: 'POST',
     })
       .then((res) => {
