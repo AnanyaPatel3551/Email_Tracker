@@ -24,6 +24,9 @@ class Email(Base):
     # Flag indicating if this email needs a follow-up action
     needs_follow_up = Column(Boolean, default=False, nullable=False, index=True)
 
+    # Supabase Auth user ID (UUID referencing auth.users in Supabase Postgres)
+    user_id = Column(String, nullable=True, index=True)
+
     # Establish relationship to events (one-to-many relationship)
     # back_populates links this to the 'email' property on the Event model
     events = relationship("Event", back_populates="email", cascade="all, delete-orphan")

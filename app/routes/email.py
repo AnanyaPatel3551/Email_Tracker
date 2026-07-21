@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.email import Email
+from app.auth import get_current_user, get_current_user_optional
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -16,9 +17,13 @@ class EmailCreate(BaseModel):
     sent_at: Optional[datetime] = None
 
 @router.post("/emails", status_code=status.HTTP_201_CREATED)
-def create_email(email_data: EmailCreate, db: Session = Depends(get_db)):
+def create_email(
+    email_data: EmailCreate,
+    db: Session = Depends(get_db),
+    current_user_id: Optional[str] = Depends(get_current_user_optional)
+):
     """
-    Creates a new tracked email record in the database.
+    Creates a new tracked email record in the database, tagged with the user's ID if authenticated.
     """
     # Check if the email with this ID already exists to prevent duplicate keys
     existing = db.query(Email).filter(Email.id == email_data.id).first()
@@ -33,7 +38,8 @@ def create_email(email_data: EmailCreate, db: Session = Depends(get_db)):
         id=email_data.id,
         recipient=email_data.recipient,
         subject=email_data.subject,
-        sent_at=email_data.sent_at or datetime.utcnow()
+        sent_at=email_data.sent_at or datetime.utcnow(),
+        user_id=current_user_id
     )
     
     db.add(new_email)
@@ -46,19 +52,23 @@ def create_email(email_data: EmailCreate, db: Session = Depends(get_db)):
             "id": new_email.id,
             "recipient": new_email.recipient,
             "subject": new_email.subject,
-            "sent_at": new_email.sent_at
+            "sent_at": new_email.sent_at,
+            "user_id": new_email.user_id
         }
     }
 
 @router.get("/emails")
-def get_emails(db: Session = Depends(get_db)):
+def get_emails(
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user)
+):
     """
-    Retrieves all emails along with their open counts, open status, reply status, and follow-up flags.
+    Retrieves tracked emails belonging to the currently authenticated user.
     """
     from sqlalchemy import func
     from app.models.event import Event
 
-    # Perform a LEFT OUTER JOIN to get all emails and count their associated "open" events
+    # Perform a LEFT OUTER JOIN to get user's emails and count their associated "open" events
     results = (
         db.query(
             Email.id,
@@ -69,6 +79,7 @@ def get_emails(db: Session = Depends(get_db)):
             Email.needs_follow_up,
             func.count(Event.id).label("open_count")
         )
+        .filter((Email.user_id == current_user_id) | (Email.user_id.is_(None)))
         .outerjoin(Event, (Email.id == Event.email_id) & (Event.type == "open"))
         .group_by(Email.id)
         .order_by(Email.sent_at.desc())  # Show newest emails first

@@ -1,16 +1,42 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import Auth from './components/Auth';
 
 function App() {
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [seeding, setSeeding] = useState(false);
 
+  useEffect(() => {
+    // Check active sessions on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    // Listen for auth changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Fetch emails from the FastAPI backend when the component mounts
-  const fetchEmails = () => {
+  const fetchEmails = (currentSession) => {
+    const activeSession = currentSession || session;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    return fetch(`${apiUrl}/emails`)
+    const headers = {};
+    if (activeSession?.access_token) {
+      headers['Authorization'] = `Bearer ${activeSession.access_token}`;
+    }
+
+    return fetch(`${apiUrl}/emails`, { headers })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to fetch emails: Server responded with status ${res.status}`);
@@ -28,16 +54,36 @@ function App() {
   };
 
   useEffect(() => {
-    setLoading(true);
-    fetchEmails().finally(() => setLoading(false));
-  }, []);
+    if (session) {
+      setLoading(true);
+      fetchEmails(session).finally(() => setLoading(false));
+    }
+  }, [session]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   // Post to backend to seed mock data, then refresh UI
   const handleSeedData = () => {
     setSeeding(true);
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const headers = {};
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
     fetch(`${apiUrl}/emails/seed`, {
       method: 'POST',
+      headers,
     })
       .then((res) => {
         if (!res.ok) {
@@ -46,7 +92,7 @@ function App() {
         return res.json();
       })
       .then(() => {
-        return fetchEmails();
+        return fetchEmails(session);
       })
       .catch((err) => {
         console.error('[Dashboard Seed Error]', err);
@@ -93,15 +139,31 @@ function App() {
             </p>
           </div>
           
-          {/* Status Indicator */}
-          <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-900/80 border border-slate-800 rounded-full shadow-inner">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs font-semibold text-emerald-400 tracking-wide uppercase">
-              Connected to Gmail
-            </span>
+          {/* Top Bar Actions & Status */}
+          <div className="flex flex-wrap items-center gap-3">
+            {session?.user?.email && (
+              <div className="flex items-center gap-2.5 bg-slate-900/80 border border-slate-800 rounded-full px-3.5 py-1.5 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                <span className="font-mono text-slate-200">{session.user.email}</span>
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="ml-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors duration-150 border border-slate-700/40"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+
+            {/* Status Indicator */}
+            <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-900/80 border border-slate-800 rounded-full shadow-inner">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-emerald-400 tracking-wide uppercase">
+                Connected to Gmail
+              </span>
+            </div>
           </div>
         </header>
 
