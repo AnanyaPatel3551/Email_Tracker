@@ -1,4 +1,6 @@
-console.log("[Gmail Email Tracker] Content script loaded successfully on Gmail!");
+// Define backend API URL (Default to live Render backend so Google Image Proxy can fetch pixel over the internet)
+const API_BASE_URL = "https://email-tracker-api-s7y7.onrender.com";
+const LOCAL_API_BASE_URL = "http://127.0.0.1:8000";
 
 // Helper to extract the recipient from Gmail's compose window
 function getRecipient(composeWindow) {
@@ -43,11 +45,35 @@ function saveEmailToBackend(emailId, recipient, subject) {
 
   console.log("[Gmail Email Tracker] Attempting to save email record:", payload);
 
-  fetch("http://127.0.0.1:8000/emails", {
+  // Retrieve stored API Key from extension local storage
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(["apiKey"], (result) => {
+      const apiKey = result.apiKey;
+      const headers = {
+        "Content-Type": "application/json"
+      };
+
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      } else {
+        console.warn("[Gmail Email Tracker] Warning: No API Key found in chrome.storage.local. Open extension Options to paste your key.");
+      }
+
+      // Try saving to local backend first, or fallback to live Render backend
+      sendPostRequest(payload, headers);
+    });
+  } else {
+    sendPostRequest(payload, { "Content-Type": "application/json" });
+  }
+}
+
+function sendPostRequest(payload, headers) {
+  // Post to local server (or live Render server)
+  const targetUrl = `${LOCAL_API_BASE_URL}/emails`;
+  
+  fetch(targetUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: headers,
     body: JSON.stringify(payload)
   })
     .then((response) => {
@@ -66,12 +92,15 @@ function saveEmailToBackend(emailId, recipient, subject) {
 
 // Initialize the MutationObserver to watch for additions to Gmail's DOM
 const observer = new MutationObserver((mutations) => {
-  const composeWindows = document.querySelectorAll("div.M9, div[role='dialog']");
+  // Target Gmail's top-level compose window container (div.M9)
+  const composeWindows = document.querySelectorAll("div.M9");
 
   composeWindows.forEach((composeWindow) => {
-    // Process new compose windows only
-    if (!composeWindow.hasAttribute("data-tracker-detected")) {
-      composeWindow.setAttribute("data-tracker-detected", "true");
+    // Skip if this compose window or any parent element was already processed
+    if (composeWindow.hasAttribute("data-tracker-detected") || composeWindow.closest("[data-tracker-detected]")) {
+      return;
+    }
+    composeWindow.setAttribute("data-tracker-detected", "true");
 
       // 1. Generate unique email ID
       const emailId = crypto.randomUUID();
@@ -83,8 +112,8 @@ const observer = new MutationObserver((mutations) => {
       if (emailBody) {
         const img = document.createElement("img");
         
-        // Point to our local FastAPI server pixel endpoint
-        img.src = `http://127.0.0.1:8000/pixel/${emailId}`;
+        // Point to live Render backend so Google Image Proxy and remote recipients can load pixel over public internet
+        img.src = `${API_BASE_URL}/pixel/${emailId}`;
         img.width = 1;
         img.height = 1;
         img.alt = "";
@@ -103,6 +132,12 @@ const observer = new MutationObserver((mutations) => {
       const sendButton = composeWindow.querySelector(".aoO, [role='button'][data-tooltip*='Send']");
 
       const handleSendAction = () => {
+        // Prevent duplicate trigger on click + Enter key press
+        if (composeWindow.getAttribute("data-email-sent") === "true") {
+          return;
+        }
+        composeWindow.setAttribute("data-email-sent", "true");
+
         const recipient = getRecipient(composeWindow);
         const subject = getSubject(composeWindow);
         saveEmailToBackend(emailId, recipient, subject);
@@ -117,7 +152,6 @@ const observer = new MutationObserver((mutations) => {
           handleSendAction();
         }
       });
-    }
   });
 });
 

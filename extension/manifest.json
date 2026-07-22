@@ -1,8 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Gmail Email Tracker",
-  "version": "1.0",
-  "description": "Injects tracking pixels into Gmail compose windows.",
+  "version": "1.1",
+  "description": "Injects tracking pixels into Gmail compose windows and tags emails with your API Key.",
+  "permissions": [
+    "storage"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
       "matches": [
