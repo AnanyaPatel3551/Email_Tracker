@@ -95,4 +95,16 @@ def get_current_user_optional(
     except HTTPException:
         return None
 
+def require_api_key_or_jwt(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    api_key: str | None = Depends(api_key_header),
+) -> str:
+    """
+    Strict authentication dependency for routes like POST /emails.
+    Requires either a valid X-API-Key header OR a valid Authorization Bearer JWT token.
+    Rejects missing or invalid credentials with 401 Unauthorized.
+    """
+    return get_current_user(credentials, api_key)
+
+
 

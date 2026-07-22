@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.email import Email
-from app.auth import get_current_user, get_current_user_optional
+from app.auth import get_current_user, get_current_user_optional, require_api_key_or_jwt
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -20,10 +20,11 @@ class EmailCreate(BaseModel):
 def create_email(
     email_data: EmailCreate,
     db: Session = Depends(get_db),
-    current_user_id: Optional[str] = Depends(get_current_user_optional)
+    current_user_id: str = Depends(require_api_key_or_jwt)
 ):
     """
-    Creates a new tracked email record in the database, tagged with the user's ID if authenticated.
+    Creates a new tracked email record in the database, strictly tagged with the authenticated user's ID.
+    Rejects unauthenticated requests with 401 Unauthorized if X-API-Key or Authorization header is missing.
     """
     # Check if the email with this ID already exists to prevent duplicate keys
     existing = db.query(Email).filter(Email.id == email_data.id).first()
