@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
+import Settings from './components/Settings';
 
 function App() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [currentTab, setCurrentTab] = useState('dashboard');
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -141,6 +143,30 @@ function App() {
           
           {/* Top Bar Actions & Status */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Nav Tabs */}
+            <div className="flex p-1 bg-slate-900/80 border border-slate-800 rounded-full mr-1">
+              <button
+                onClick={() => setCurrentTab('dashboard')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 ${
+                  currentTab === 'dashboard'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentTab('settings')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 ${
+                  currentTab === 'settings'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Settings
+              </button>
+            </div>
+
             {session?.user?.email && (
               <div className="flex items-center gap-2.5 bg-slate-900/80 border border-slate-800 rounded-full px-3.5 py-1.5 text-xs text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-indigo-400" />
@@ -153,19 +179,13 @@ function App() {
                 </button>
               </div>
             )}
-
-            {/* Status Indicator */}
-            <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-slate-900/80 border border-slate-800 rounded-full shadow-inner">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-xs font-semibold text-emerald-400 tracking-wide uppercase">
-                Connected to Gmail
-              </span>
-            </div>
           </div>
         </header>
+
+        {currentTab === 'settings' ? (
+          <Settings session={session} />
+        ) : (
+          <div className="space-y-8">
 
         {/* Error Alert Display */}
         {error && (
@@ -449,6 +469,8 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+    )}
 
       </div>
     </div>

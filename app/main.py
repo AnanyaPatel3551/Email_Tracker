@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.routes.pixel import router as pixel_router
 from app.routes.email import router as email_router
+from app.routes.api_key import router as api_key_router
 from app.scheduler import start_scheduler, scheduler
 import app.models  # Registers Email and Event models on Base
 
@@ -54,6 +55,8 @@ app.add_middleware(
 # Include the tracking routes
 app.include_router(pixel_router)
 app.include_router(email_router)
+app.include_router(api_key_router)
+
 
 @app.get("/")
 def read_root():
