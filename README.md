@@ -141,6 +141,8 @@ To bypass IPv6 constraints on free hosting platforms (like Render), configure th
 
 ## Known Limitations
 
+*   **Render Free Tier Cold Starts**: Free-tier web services on Render enter a sleep state after 15 minutes of inactivity. When a recipient opens a tracked email after the backend has gone to sleep, the pixel image request (`GET /pixel/{id}`) can experience a 10-20+ second cold-start spin-up delay. If the recipient's email client times out before Render finishes spinning up, the open event may be delayed or missed.
 *   **Image Caching**: Many modern email clients (most notably Gmail) proxy and cache external images. When a recipient opens the email for the first time, Gmail's proxy server fetches the pixel (registering an open). However, subsequent opens might load the cached image from Gmail's CDN rather than requesting it from our server. This can lead to repeat opens being under-reported.
 *   **"Images Off" Settings**: If a recipient has configured their email client to block external images by default (e.g. "Ask before displaying external images"), the tracking pixel will not load. Consequently, opens for these recipients cannot be tracked.
 *   **Manual Reply Detection**: The database tracks whether a recipient has replied via the `replied` boolean column. However, the system currently does not parse inbound inbox folders via IMAP or monitor Gmail webhooks. Replies are currently simulated in seed data or must be manually updated in the database.
+
