@@ -8,11 +8,13 @@ An end-to-end email tracking application featuring a Chrome Extension to inject 
 
 | Component | Technologies Used | Description |
 | :--- | :--- | :--- |
-| **Backend API** | FastAPI, SQLAlchemy, Uvicorn, psycopg2-binary | Receives event requests, handles metadata logging, and exposes REST endpoints. |
-| **Database** | SQLite (Local Dev) / Supabase PostgreSQL (Prod) | Handles persistent storage of emails, events, and follow-up states. |
+| **Backend API** | FastAPI, SQLAlchemy, PyJWT, psycopg2-binary | Receives tracking events, verifies JWT & API Key auth, and exposes REST endpoints. |
+| **Database** | SQLite (Local Dev) / Supabase PostgreSQL (Prod) | Multi-tenant schema with `user_id` scoping and `api_keys` persistence. |
+| **Authentication** | Supabase Auth (JWT), PyJWT | User Sign In, Sign Up, Session management, and Bearer JWT signature verification. |
+| **Extension Options**| Chrome Storage API (`chrome.storage.local`) | Options UI page for persisting static `X-API-Key` headers securely. |
 | **Background Scheduler**| APScheduler | Runs background threads to flag aged emails requiring follow-ups. |
-| **Frontend Dashboard** | React (Vite), TailwindCSS | Visualizes email tracking statistics, states, and filtering. |
-| **Chrome Extension** | Manifest V3, Vanilla JS Content Scripts | Detects Gmail compose windows and dynamically injects tracking pixels. |
+| **Frontend Dashboard** | React (Vite), TailwindCSS, Supabase JS SDK | Visualizes open stats, settings UI for API key management, and session control. |
+| **Chrome Extension** | Manifest V3, Vanilla JS Content Scripts | Detects Gmail compose windows, injects live Render pixels, and attaches `X-API-Key`. |
 
 ---
 
@@ -21,40 +23,36 @@ An end-to-end email tracking application featuring a Chrome Extension to inject 
 Below is a conceptual architecture flow showing how components communicate:
 
 ```text
-+--------------------------------------------------------+
-|                     Chrome Extension                   |
-|                   (Gmail Compose Tab)                  |
-+-----------+--------------------------------+-----------+
-            |                                |
-  (1) Save Metadata (POST /emails)     (2) Load Pixel (GET /pixel/{id})
-            |                                |
-            v                                v
-+-----------+--------------------------------v-----------+
-|                     FastAPI Backend                        |
-|             (Render Web Service / Uvicorn)             |
-+-----------+--------------------------------+-----------+
-            |                                |
-      Read / Write                       Read / Write
-            |                                |
-            v                                v
-+-----------+--------------------------------v-----------+
-|                        Database                            |
-|             (SQLite local / Supabase Postgres)             |
-+-----------+--------------------------------+-----------+
-            ^                                ^
-     Fetch / Read                        Read / Update
-            |                                |
-+-----------+--------------------+   +-------+-----------+
-|        React Dashboard         |   |    APScheduler    |
-|      (Vercel Web App)          |   |  (Daily Cron Job) |
-+--------------------------------+   +-------------------+
++------------------------------------+        +------------------------------------+
+|          Dashboard App             |        |      Chrome Extension (Gmail)      |
+|  (https://email-tracker.vercel.app)|        |     (https://mail.google.com)      |
++-----------------+------------------+        +-----------------+------------------+
+                  |                                             |
+     Uses Short-Lived Session JWT                   Uses Long-Lived API Key
+  (Authorization: Bearer <JWT>)                   (X-API-Key: et_live_...)
+                  |                                             |
+                  +---------------------+-----------------------+
+                                        |
+                                        v
+                    +---------------------------------------+
+                    |            FastAPI Backend            |
+                    |   (require_api_key_or_jwt dependency) |
+                    |       Enforces 401 Unauthorized       |
+                    +-------------------+-------------------+
+                                        |
+                                        v
+                    +---------------------------------------+
+                    |          Supabase PostgreSQL          |
+                    |  (Scoped Queries: WHERE user_id = :id)|
+                    +---------------------------------------+
 ```
 
-1. **Email Compose**: The Chrome Extension listens for new compose windows on Gmail, generates a unique UUID, appends an invisible 1x1 image pixel pointing to `/pixel/{uuid}`, and listens to the "Send" button.
-2. **Logging**: On send, the extension POSTs metadata (`id`, `recipient`, `subject`) to `/emails`.
-3. **Open Event**: When the recipient opens the email, their client loads the pixel image from `/pixel/{uuid}`. The backend logs the `open` action in the `events` table.
-4. **Follow-Up Engine**: A background cron job runs once every 24 hours. Any email older than 3 days (`sent_at < 3 days ago`) that has not been replied to (`replied == False`) gets flagged (`needs_follow_up = True`).
-5. **Dashboard Analytics**: The React client fetches data from `/emails` to display stats and alert banners.
+1. **User Auth & Key Generation**: Users sign up or log into the React dashboard via Supabase Auth. In Dashboard **Settings**, users generate long-lived API keys (`et_live_...`).
+2. **Extension Setup**: The user pastes their API key into the Chrome Extension options page (`options.html`). The key is saved permanently in `chrome.storage.local`.
+3. **Email Compose & Header Injection**: When sending an email in Gmail, the Chrome Extension injects a live tracking pixel (`https://email-tracker-api-s7y7.onrender.com/pixel/{uuid}`) and posts metadata to `/emails` attaching header `X-API-Key: et_live_...`.
+4. **Backend Security**: FastAPI verifies incoming requests using `require_api_key_or_jwt` (rejecting unauthenticated requests with `401 Unauthorized`).
+5. **Open Event**: When the recipient opens the email, Google Image Proxy loads `/pixel/{uuid}`. The public route logs the `open` event in the `events` table.
+6. **Isolated Dashboard**: When a user views their dashboard, `GET /emails` filters data strictly by `WHERE user_id = :current_user_id` preventing cross-tenant data leakage.
 
 ---
 
@@ -85,7 +83,7 @@ Below is a conceptual architecture flow showing how components communicate:
 2. Enable **Developer Mode** (top-right toggle switch).
 3. Click **Load unpacked** (top-left button).
 4. Select the `extension/` directory from this repository.
-5. In [content.js](extension/content.js), ensure the `fetch` and `img.src` domains point to your backend API URL (defaults to `http://localhost:8000` for local testing).
+5. Right-click the extension icon $\rightarrow$ select **Options**, paste your API key generated from the dashboard, and click **Save Settings**.
 
 ### 3. Dashboard Setup (React + Vite)
 1. Navigate to the `dashboard/` directory.
@@ -93,9 +91,11 @@ Below is a conceptual architecture flow showing how components communicate:
    ```bash
    npm install
    ```
-3. (Optional) Create a `.env` file inside `/dashboard` if you want to override the default local backend URL:
+3. Create a `.env` file inside `/dashboard`:
    ```env
    VITE_API_URL=http://localhost:8000
+   VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
    ```
 4. Start the frontend local dev server:
    ```bash
@@ -116,7 +116,6 @@ To bypass IPv6 constraints on free hosting platforms (like Render), configure th
    ```text
    postgresql://postgres.<project_ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require
    ```
-   *(Note: Since `psycopg2` compiles queries client-side, the `prepare_threshold=0` query parameter is not required and will throw an error if passed).*
 
 ### 2. Backend Setup (Render)
 1. Deploy the repository as a **Web Service** on Render.
@@ -127,13 +126,16 @@ To bypass IPv6 constraints on free hosting platforms (like Render), configure th
    ```
 4. Add the following **Environment Variables**:
    * `DATABASE_URL`: Your Supabase Transaction Pooler connection string.
-   * `ALLOWED_ORIGINS`: Your Vercel frontend URL (e.g. `https://your-app.vercel.app`) to handle CORS safety.
+   * `ALLOWED_ORIGINS`: Your Vercel frontend URL (e.g. `https://your-app.vercel.app`).
+   * `SUPABASE_JWT_SECRET`: Your Supabase JWT secret string (found in Supabase Settings -> JWT Keys -> Legacy JWT Secret).
 
 ### 3. Frontend Setup (Vercel)
 1. Connect your repository on Vercel and import the project.
 2. Set the **Root Directory** setting to `dashboard`.
-3. Add the following **Environment Variable**:
-   * `VITE_API_URL`: Your live Render backend URL (e.g. `https://email-tracker-api.onrender.com` without a trailing slash).
+3. Add the following **Environment Variables**:
+   * `VITE_API_URL`: Your live Render backend URL (e.g. `https://email-tracker-api-s7y7.onrender.com`).
+   * `VITE_SUPABASE_URL`: Your Supabase base project URL.
+   * `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key.
 
 ---
 
