@@ -111,8 +111,14 @@ def seed_emails(db: Session = Depends(get_db)):
     from app.models.event import Event
     from datetime import datetime, timedelta
 
-    # Targeted IDs for cleanup to allow idempotent runs without broad TRUNCATE
-    demo_ids = [f"demo_email_{i}" for i in range(1, 6)]
+    # Deterministic UUID v4 IDs for demo seed cleanup and idempotency
+    demo_ids = [
+        "11111111-1111-4111-a111-111111111111",
+        "22222222-2222-4222-a222-222222222222",
+        "33333333-3333-4333-a333-333333333333",
+        "44444444-4444-4444-a444-444444444444",
+        "55555555-5555-4555-a555-555555555555"
+    ]
     
     # Clean up any existing demo events first
     db.query(Event).filter(Event.email_id.in_(demo_ids)).delete(synchronize_session=False)
@@ -122,10 +128,10 @@ def seed_emails(db: Session = Depends(get_db)):
 
     now = datetime.utcnow()
 
-    # Define mock emails
+    # Define mock emails with UUID v4 IDs
     mock_emails = [
         Email(
-            id="demo_email_1",
+            id="11111111-1111-4111-a111-111111111111",
             recipient="sarah.connell@techcorp.com",
             subject="Partnership Proposal & Integration Options",
             sent_at=now - timedelta(hours=2),
@@ -133,7 +139,7 @@ def seed_emails(db: Session = Depends(get_db)):
             needs_follow_up=False
         ),
         Email(
-            id="demo_email_2",
+            id="22222222-2222-4222-a222-222222222222",
             recipient="recruiting@google.com",
             subject="Software Engineer Application - Antigravity AI",
             sent_at=now - timedelta(days=1),
@@ -141,7 +147,7 @@ def seed_emails(db: Session = Depends(get_db)):
             needs_follow_up=False
         ),
         Email(
-            id="demo_email_3",
+            id="33333333-3333-4333-a333-333333333333",
             recipient="investors@venturecap.com",
             subject="Seed Round Pitch Deck - Email Tracker Tool",
             sent_at=now - timedelta(days=3),
@@ -149,7 +155,7 @@ def seed_emails(db: Session = Depends(get_db)):
             needs_follow_up=True
         ),
         Email(
-            id="demo_email_4",
+            id="44444444-4444-4444-a444-444444444444",
             recipient="james@designstudio.io",
             subject="Feedback on Website Mockup & SVG Icons",
             sent_at=now - timedelta(days=4),
@@ -157,7 +163,7 @@ def seed_emails(db: Session = Depends(get_db)):
             needs_follow_up=True
         ),
         Email(
-            id="demo_email_5",
+            id="55555555-5555-4555-a555-555555555555",
             recipient="alicia@freelance.org",
             subject="Contract Agreement & Signature Requested",
             sent_at=now - timedelta(days=5),
@@ -169,23 +175,23 @@ def seed_emails(db: Session = Depends(get_db)):
     # Define mock events
     mock_events = [
         # sarah.connell@techcorp.com opened it 3 times
-        Event(email_id="demo_email_1", type="open", timestamp=now - timedelta(minutes=90)),
-        Event(email_id="demo_email_1", type="open", timestamp=now - timedelta(minutes=60)),
-        Event(email_id="demo_email_1", type="open", timestamp=now - timedelta(minutes=30)),
+        Event(email_id="11111111-1111-4111-a111-111111111111", type="open", timestamp=now - timedelta(minutes=90)),
+        Event(email_id="11111111-1111-4111-a111-111111111111", type="open", timestamp=now - timedelta(minutes=60)),
+        Event(email_id="11111111-1111-4111-a111-111111111111", type="open", timestamp=now - timedelta(minutes=30)),
 
         # recruiting@google.com opened once
-        Event(email_id="demo_email_2", type="open", timestamp=now - timedelta(hours=12)),
+        Event(email_id="22222222-2222-4222-a222-222222222222", type="open", timestamp=now - timedelta(hours=12)),
 
         # james@designstudio.io opened 5 times
-        Event(email_id="demo_email_4", type="open", timestamp=now - timedelta(days=3, hours=10)),
-        Event(email_id="demo_email_4", type="open", timestamp=now - timedelta(days=3, hours=5)),
-        Event(email_id="demo_email_4", type="open", timestamp=now - timedelta(days=2, hours=20)),
-        Event(email_id="demo_email_4", type="open", timestamp=now - timedelta(days=2, hours=12)),
-        Event(email_id="demo_email_4", type="open", timestamp=now - timedelta(days=1, hours=2)),
+        Event(email_id="44444444-4444-4444-a444-444444444444", type="open", timestamp=now - timedelta(days=3, hours=10)),
+        Event(email_id="44444444-4444-4444-a444-444444444444", type="open", timestamp=now - timedelta(days=3, hours=5)),
+        Event(email_id="44444444-4444-4444-a444-444444444444", type="open", timestamp=now - timedelta(days=2, hours=20)),
+        Event(email_id="44444444-4444-4444-a444-444444444444", type="open", timestamp=now - timedelta(days=2, hours=12)),
+        Event(email_id="44444444-4444-4444-a444-444444444444", type="open", timestamp=now - timedelta(days=1, hours=2)),
 
         # alicia@freelance.org opened 2 times
-        Event(email_id="demo_email_5", type="open", timestamp=now - timedelta(days=4, hours=22)),
-        Event(email_id="demo_email_5", type="open", timestamp=now - timedelta(days=4, hours=18)),
+        Event(email_id="55555555-5555-4555-a555-555555555555", type="open", timestamp=now - timedelta(days=4, hours=22)),
+        Event(email_id="55555555-5555-4555-a555-555555555555", type="open", timestamp=now - timedelta(days=4, hours=18)),
     ]
 
     for email in mock_emails:

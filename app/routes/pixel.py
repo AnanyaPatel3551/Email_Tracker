@@ -2,6 +2,7 @@ import datetime
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.models.email import Email
 from app.models.event import Event
 
 router = APIRouter()
@@ -18,18 +19,21 @@ def track_pixel(email_id: str, db: Session = Depends(get_db)):
     """
     Receives pixel tracking requests, logs an 'open' event, and returns a 1x1 transparent PNG.
     """
-    # Log the email open event in the events database
-    event = Event(
-        email_id=email_id,
-        type="open",
-        timestamp=datetime.datetime.utcnow()
-    )
-    db.add(event)
-    db.commit()
+    # Check if the email ID exists in the database to prevent foreign key violations
+    email_exists = db.query(Email.id).filter(Email.id == email_id).first()
+    if email_exists:
+        event = Event(
+            email_id=email_id,
+            type="open",
+            timestamp=datetime.datetime.utcnow()
+        )
+        db.add(event)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
     
-    # Return binary image response
-    # media_type instructs the browser to treat this data as a PNG image
-    # headers Cache-Control prevents email clients from caching the pixel load
+    # Return binary 1x1 transparent PNG image response
     return Response(
         content=TRANSPARENT_PNG_PIXEL,
         media_type="image/png",
@@ -39,3 +43,4 @@ def track_pixel(email_id: str, db: Session = Depends(get_db)):
             "Expires": "0"
         }
     )
+
