@@ -59,6 +59,13 @@ function App() {
     if (session) {
       setLoading(true);
       fetchEmails(session).finally(() => setLoading(false));
+
+      // Auto-refresh emails every 10 seconds to show live opens automatically
+      const interval = setInterval(() => {
+        fetchEmails(session);
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [session]);
 
@@ -243,8 +250,17 @@ function App() {
             ))}
           </div>
 
-          <div className="text-xs text-slate-400">
-            Last synced: <span className="text-slate-300 font-mono">Just now</span>
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <span>Auto-syncing <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse ml-1" /></span>
+            <button
+              onClick={() => fetchEmails(session)}
+              className="px-3 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+              Refresh
+            </button>
           </div>
         </div>
 
@@ -258,6 +274,7 @@ function App() {
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Recipient</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Subject</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Sent At</th>
+                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Last Opened</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Opens</th>
                   </tr>
@@ -267,6 +284,7 @@ function App() {
                     <tr key={n} className="animate-pulse">
                       <td className="py-4 px-6"><div className="h-4 bg-slate-800 rounded w-32" /></td>
                       <td className="py-4 px-6"><div className="h-4 bg-slate-800 rounded w-48" /></td>
+                      <td className="py-4 px-6"><div className="h-4 bg-slate-800 rounded w-24" /></td>
                       <td className="py-4 px-6"><div className="h-4 bg-slate-800 rounded w-24" /></td>
                       <td className="py-4 px-6"><div className="h-6 bg-slate-800 rounded-full w-20" /></td>
                       <td className="py-4 px-6 text-center"><div className="h-4 bg-slate-800 rounded mx-auto w-8" /></td>
@@ -386,6 +404,7 @@ function App() {
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Recipient</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Subject</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Sent At</th>
+                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Last Opened</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Opens</th>
                   </tr>
@@ -394,7 +413,7 @@ function App() {
                   {filteredEmails.length === 0 ? (
                     // Empty State Render for Filters
                     <tr>
-                      <td colSpan="5" className="py-20 px-6 text-center">
+                      <td colSpan="6" className="py-20 px-6 text-center">
                         <div className="max-w-md mx-auto flex flex-col items-center">
                           <div className="w-16 h-16 bg-slate-800/40 border border-slate-700/50 rounded-2xl flex items-center justify-center mb-5">
                             <svg className="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -428,6 +447,20 @@ function App() {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}
+                        </td>
+                        <td className="py-4 px-6 text-sm font-mono">
+                          {email.last_opened ? (
+                            <span className="text-emerald-400 font-semibold">
+                              {new Date(email.last_opened).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
                         </td>
                         <td className="py-4 px-6 text-sm">
                           {email.needs_follow_up ? (

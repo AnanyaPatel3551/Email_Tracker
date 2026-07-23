@@ -68,10 +68,11 @@ function saveEmailToBackend(emailId, recipient, subject) {
 }
 
 function sendPostRequest(payload, headers) {
-  // Post to local server (or live Render server)
-  const targetUrl = `${LOCAL_API_BASE_URL}/emails`;
+  // Post to local server first, with automatic fallback to live Render backend
+  const localUrl = `${LOCAL_API_BASE_URL}/emails`;
+  const remoteUrl = `${API_BASE_URL}/emails`;
   
-  fetch(targetUrl, {
+  fetch(localUrl, {
     method: "POST",
     headers: headers,
     body: JSON.stringify(payload)
@@ -83,10 +84,27 @@ function sendPostRequest(payload, headers) {
       return response.json();
     })
     .then((data) => {
-      console.log("[Gmail Email Tracker] Successfully saved email to backend:", data);
+      console.log("[Gmail Email Tracker] Successfully saved email to local backend:", data);
     })
-    .catch((error) => {
-      console.error("[Gmail Email Tracker] Error saving email to backend:", error);
+    .catch((localError) => {
+      console.warn("[Gmail Email Tracker] Local backend post failed/blocked, falling back to Render:", localError);
+      fetch(remoteUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload)
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("[Gmail Email Tracker] Successfully saved email to Render backend:", data);
+        })
+        .catch((remoteError) => {
+          console.error("[Gmail Email Tracker] Error saving email to both local and Render backend:", remoteError);
+        });
     });
 }
 
