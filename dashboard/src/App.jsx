@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import Settings from './components/Settings';
+import { formatDistanceToNow } from 'date-fns';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -450,16 +451,17 @@ function App() {
                         </td>
                         <td className="py-4 px-6 text-sm font-mono">
                           {email.last_opened ? (
-                            <span className="text-emerald-400 font-semibold">
-                              {new Date(email.last_opened).toLocaleString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
+                            <span 
+                              className="text-emerald-400 font-semibold cursor-help"
+                              title={new Date(email.last_opened).toLocaleString(undefined, {
+                                dateStyle: 'full',
+                                timeStyle: 'medium'
                               })}
+                            >
+                              {formatDistanceToNow(new Date(email.last_opened), { addSuffix: true })}
                             </span>
                           ) : (
-                            <span className="text-slate-600">—</span>
+                            <span className="text-slate-600 font-sans italic">Never</span>
                           )}
                         </td>
                         <td className="py-4 px-6 text-sm">
