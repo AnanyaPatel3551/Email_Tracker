@@ -12,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('sent_at');
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
@@ -113,7 +114,7 @@ function App() {
       });
   };
 
-  // Filter and sort emails based on selected tab (most recent first)
+  // Filter and sort emails based on selected tab and sort mode
   const filteredEmails = emails
     .filter((email) => {
       if (activeFilter === 'opened') return email.opened;
@@ -121,7 +122,15 @@ function App() {
       if (activeFilter === 'follow-up') return email.needs_follow_up;
       return true;
     })
-    .sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+    .sort((a, b) => {
+      if (sortBy === 'last_opened') {
+        if (!a.last_opened && !b.last_opened) return new Date(b.sent_at) - new Date(a.sent_at);
+        if (!a.last_opened) return 1;
+        if (!b.last_opened) return -1;
+        return new Date(b.last_opened) - new Date(a.last_opened);
+      }
+      return new Date(b.sent_at) - new Date(a.sent_at);
+    });
 
   // Calculate aggregates dynamically from state
   const totalSent = emails.length;
@@ -233,22 +242,50 @@ function App() {
           ))}
         </section>
 
-        {/* Filter Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex p-1 bg-slate-900/60 border border-slate-800 rounded-xl">
-            {['all', 'opened', 'not-opened', 'follow-up'].map((filter) => (
+        {/* Filter & Sort Bar */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filter Tabs */}
+            <div className="flex p-1 bg-slate-900/60 border border-slate-800 rounded-xl">
+              {['all', 'opened', 'not-opened', 'follow-up'].map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`px-3.5 py-2 text-xs font-semibold rounded-lg capitalize transition-all duration-200 cursor-pointer ${
+                    activeFilter === filter
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {filter.replace('-', ' ')}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort Selector */}
+            <div className="flex items-center gap-1 p-1 bg-slate-900/60 border border-slate-800 rounded-xl text-xs">
+              <span className="px-2 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Sort:</span>
               <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg capitalize transition-all duration-200 ${
-                  activeFilter === filter
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                onClick={() => setSortBy('sent_at')}
+                className={`px-3 py-1.5 font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
+                  sortBy === 'sent_at'
+                    ? 'bg-slate-800 text-indigo-300 border border-slate-700/50 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {filter.replace('-', ' ')}
+                📅 Sent Date
               </button>
-            ))}
+              <button
+                onClick={() => setSortBy('last_opened')}
+                className={`px-3 py-1.5 font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
+                  sortBy === 'last_opened'
+                    ? 'bg-slate-800 text-emerald-300 border border-slate-700/50 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🔥 Last Opened
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-slate-400">

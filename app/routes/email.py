@@ -60,16 +60,24 @@ def create_email(
 
 @router.get("/emails")
 def get_emails(
+    sort_by: Optional[str] = "sent_at",
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
 ):
     """
     Retrieves tracked emails belonging to the currently authenticated user.
+    Supports sort_by='sent_at' (default) or sort_by='last_opened'.
     """
     from sqlalchemy import func
     from app.models.event import Event
 
-    # Perform a LEFT OUTER JOIN to get user's emails and count their associated "open" events
+    # Determine order clause
+    if sort_by == "last_opened":
+        order_clause = (func.max(Event.timestamp).desc().nulls_last(), Email.sent_at.desc())
+    else:
+        order_clause = (Email.sent_at.desc(),)
+
+    # Perform a LEFT OUTER JOIN to get user's emails and count/aggregate their associated "open" events
     results = (
         db.query(
             Email.id,
@@ -78,12 +86,13 @@ def get_emails(
             Email.sent_at,
             Email.replied,
             Email.needs_follow_up,
-            func.count(Event.id).label("open_count")
+            func.count(Event.id).label("open_count"),
+            func.max(Event.timestamp).label("last_opened")
         )
         .filter((Email.user_id == current_user_id) | (Email.user_id.is_(None)))
         .outerjoin(Event, (Email.id == Event.email_id) & (Event.type == "open"))
         .group_by(Email.id)
-        .order_by(Email.sent_at.desc())  # Show newest emails first
+        .order_by(*order_clause)
         .all()
     )
 
@@ -96,6 +105,7 @@ def get_emails(
             "sent_at": row.sent_at,
             "opened": row.open_count > 0,
             "open_count": row.open_count,
+            "last_opened": row.last_opened,
             "replied": row.replied,
             "needs_follow_up": row.needs_follow_up
         }
